@@ -1,0 +1,76 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Function to generate AC signal with harmonics
+def generate_signal(fundamental_freq, harmonics, amplitudes, fs=10000, L=1000):
+    T = 1.0 / fs  # Sampling period (s)
+    t = np.arange(0, L) * T  # Time vector
+    signal = amplitudes[0] * np.sin(2 * np.pi * fundamental_freq * t)  # Fundamental component
+    
+    # Add harmonic components
+    for i, harmonic in enumerate(harmonics):
+        signal += amplitudes[i+1] * np.sin(2 * np.pi * harmonic * t)
+    
+    return t, signal
+
+# Function to perform FFT and calculate THD
+def calculate_thd(signal, fundamental_freq, fs=10000, L=1000):
+    T = 1.0 / fs  # Sampling period (s)
+    fft_signal = np.fft.fft(signal)
+    fft_magnitude = 2.0 / L * np.abs(fft_signal[:L // 2])  # Normalize magnitude
+    frequencies = np.fft.fftfreq(L, T)[:L // 2]  # Frequency bins
+    
+    fundamental_idx = np.argmax(fft_magnitude)  # Find index of fundamental frequency
+    fundamental_amplitude = fft_magnitude[fundamental_idx]  # Amplitude of the fundamental
+
+    harmonic_power = np.sum(fft_magnitude[fundamental_idx + 1:]**2)  # Power of all harmonics
+    thd = np.sqrt(harmonic_power) / fundamental_amplitude  # THD calculation
+    
+    return frequencies, fft_magnitude, thd
+
+# Sample signals with different harmonics for testing
+test_signals = [
+    {'harmonics': [], 'amplitudes': [1]},  # Pure sine wave (no harmonics)
+    {'harmonics': [150], 'amplitudes': [0.7, 0.3]},  # Fundamental + 3rd harmonic
+    {'harmonics': [150, 250], 'amplitudes': [0.7, 0.2, 0.1]},  # Fundamental + 3rd + 5th harmonic
+    {'harmonics': [150, 250, 350], 'amplitudes': [0.7, 0.2, 0.1, 0.05]}  # Fundamental + 3rd + 5th + 7th harmonic
+]
+
+# Parameters
+fundamental_freq = 50  # 50 Hz fundamental
+fs = 10000  # Sampling frequency in Hz
+L = 1000  # Number of samples
+
+# Loop through each test signal, perform analysis, and plot
+for idx, test in enumerate(test_signals):
+    harmonics = test['harmonics']
+    amplitudes = test['amplitudes']
+    
+    # Generate the signal
+    t, signal = generate_signal(fundamental_freq, harmonics, amplitudes, fs, L)
+    
+    # Perform FFT and calculate THD
+    frequencies, fft_magnitude, thd = calculate_thd(signal, fundamental_freq, fs, L)
+    
+    # Plot the time domain signal
+    plt.figure(figsize=(12, 6))
+    plt.subplot(2, 1, 1)
+    plt.plot(t, signal)
+    plt.title(f'Time Domain Signal - Test {idx + 1}')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Amplitude')
+    plt.grid(True)
+    
+    # Plot the frequency domain (FFT)
+    plt.subplot(2, 1, 2)
+    plt.plot(frequencies, fft_magnitude)
+    plt.title(f'Frequency Domain (FFT) - Test {idx + 1} - THD: {thd * 100:.2f}%')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Amplitude')
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print THD for the current test signal
+    print(f"Test {idx + 1} - Total Harmonic Distortion (THD): {thd * 100:.2f}%")
